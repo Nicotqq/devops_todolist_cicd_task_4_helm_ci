@@ -11,6 +11,7 @@ on:
 env:
   PythonVersion: 3.8
   DockerImageName: todoapp
+  HelmChartPath: ./helm-charts/todoapp
 
 jobs:
   python-ci:
@@ -56,14 +57,21 @@ jobs:
           name: python-artifacts
           path: .
 
+      - name: Upload helm artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-artifacts
+          path: helm-charts
+          include-hidden-files: true
+
   docker-ci:
     runs-on: ubuntu-latest
     if: ${{ github.ref_name == 'your_name' }}
     needs: python-ci
     steps:
 
-    - name: download python artifacts
-      uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v4
+      name: Download python artifacts
       with:
         name: python-artifacts
         path: .
@@ -80,37 +88,29 @@ jobs:
         push: true
         context: ./src
         tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DockerImageName }}:${{ github.sha }}
-  
-  helm-ci: 
+
+  helm-ci:
     runs-on: ubuntu-latest
     needs: python-ci
-    if: github.ref_name == 'your_name'
-    name: Helm CI
     steps:
+      - name: Download helm artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: helm-artifacts
+          path: helm-charts
 
-    - uses: actions/download-artifact@v4
-    with:
-      name: helm-artifacts
-      path: .
+      - name: Execute helm template
+        run: helm template todoapp ${{ env.HelmChartPath }}
 
-      name: set up Helm
-      uses: azure/setup-helm@v4.2.0
+      - name: Execute helm lint
+        run: helm lint ${{ env.HelmChartPath }}
 
-      name: Lint helm
-      run: helm lint ${{ env.HelmChartPath }}
+      - name: Package the chart
+        run: helm package ${{ env.HelmChartPath }} --destination ./helm-package
 
-      name: Template Helm
-      run: helm template todoapp ${{ env.HelmChartPath }}
-
-      name: Create Helm package directory
-      run: mkdir -p ./helm-package
-
-      name: Package Helm
-      run: helm package ${{ env.HelmChartPath }} --destination ./helm-package
-
-      name: Upload Helm Artifact
-      uses: action/upload-artifact@v4
-      with: 
-        name: helm package
-        path: ./helm-package/*.tgz
-        if-no-files-found: error
+      - name: Upload the chart package
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-package
+          path: ./helm-package/*.tgz
+          if-no-files-found: error
