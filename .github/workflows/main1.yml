@@ -87,7 +87,8 @@ jobs:
       with:
         push: true
         context: ./src
-        tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DockerImageName }}:${{ github.sha }}
+        tags: |
+          ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DockerImageName }}:${{ env.DockerImageVersion }}-${{ github.sha }}
 
   helm-ci:
     runs-on: ubuntu-latest
